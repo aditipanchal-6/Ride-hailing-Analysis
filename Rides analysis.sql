@@ -67,28 +67,7 @@ GROUP BY d.driverid, d.drivername, d.driverrating
 ORDER BY total_earnings DESC, d.driverrating DESC
 LIMIT 10;
 
-
---Q2)Which age group uses rides most frequently?
-SELECT 
-CASE WHEN age < 25 THEN 'Under 25'
-WHEN age BETWEEN 25 AND 40 THEN '25-40'
-WHEN age BETWEEN 41 AND 60 THEN '41-60'
-ELSE '60+' END AS age_group,
-COUNT(r.rideid) AS total_rides,
-SUM(r.fare) AS total_spent
-FROM customers c
-JOIN rides r ON c.customerid = r.customerid
-GROUP BY age_group
-ORDER BY total_rides DESC;
-
---Q3)Which pickup-dropoff routes are the most popular?
-SELECT pickuplocation, dropofflocation, COUNT(*) AS ride_count
-FROM rides
-GROUP BY pickuplocation, dropofflocation
-ORDER BY ride_count DESC
-LIMIT 10;
-
---Q4)Driver efficiency: Who drives the longest distances per ride on average?
+--Q2)Driver efficiency: Who drives the longest distances per ride on average?
 SELECT d.driverid, d.drivername, ROUND(AVG(r.distance),2) AS avg_distance
 FROM rides r
 JOIN drivers d ON r.driverid = d.driverid
@@ -96,49 +75,7 @@ GROUP BY d.driverid, d.drivername
 ORDER BY avg_distance DESC
 LIMIT 10;
 
---Q5)Revenue contribution by ride type (e.g., Economy vs Premium).
-SELECT ridetype, COUNT(*) AS total_rides, ROUND(SUM(fare),2) AS total_revenue,
-ROUND(AVG(fare),2) AS avg_fare
-FROM rides
-GROUP BY ridetype
-ORDER BY total_revenue DESC;
-
---Q6)Who are the top 10 customers with the highest ride frequency but lowest average rating? (Retention Risk)
-SELECT c.customerid, c.customername, COUNT(r.rideid) AS ride_count,
-ROUND(AVG(c.customerrating),2) AS avg_rating
-FROM customers c
-JOIN rides r ON c.customerid = r.customerid
-GROUP BY c.customerid, c.customername
-HAVING COUNT(r.rideid) > 5
-ORDER BY avg_rating ASC, ride_count DESC
-LIMIT 10;
-
---Q7)Peak demand time – At what time of the day do most rides occur?
-SELECT CASE 
-WHEN EXTRACT(HOUR FROM r.pickupdatetime) BETWEEN 6 AND 11 THEN 'Morning'
-WHEN EXTRACT(HOUR FROM r.pickupdatetime) BETWEEN 12 AND 17 THEN 'Afternoon'
-WHEN EXTRACT(HOUR FROM r.pickupdatetime) BETWEEN 18 AND 22 THEN 'Evening'
-ELSE 'Night'
-END AS timeslot,
-COUNT(*) AS total_rides,
-SUM(r.fare) AS total_revenue
-FROM rides r
-GROUP BY timeslot
-ORDER BY total_revenue DESC;
-
-
---Q8)Ride type trends over months.
-SELECT 
-ridetype, 
-EXTRACT(YEAR FROM pickupdatetime) AS year,
-EXTRACT(MONTH FROM pickupdatetime) AS month,
-COUNT(rideid) AS total_rides,
-AVG(fare) AS avg_fare
-FROM rides
-GROUP BY ridetype, EXTRACT(YEAR FROM pickupdatetime), EXTRACT(MONTH FROM pickupdatetime)
-ORDER BY year, month;
-
---Q9)Which drivers earned the highest revenue, and how do their ratings compare to the overall average?
+--Q3)Which drivers earned the highest revenue, and how do their ratings compare to the overall average?
 WITH driver_revenue AS (
 SELECT 
 d.driverid,
@@ -153,6 +90,77 @@ SELECT *,
 RANK() OVER (ORDER BY total_revenue DESC) AS revenue_rank
 FROM driver_revenue
 LIMIT 10;
+
+
+--Q4)Which age group uses rides most frequently?
+SELECT 
+CASE WHEN age < 25 THEN 'Under 25'
+WHEN age BETWEEN 25 AND 40 THEN '25-40'
+WHEN age BETWEEN 41 AND 60 THEN '41-60'
+ELSE '60+' END AS age_group,
+COUNT(r.rideid) AS total_rides,
+SUM(r.fare) AS total_spent
+FROM customers c
+JOIN rides r ON c.customerid = r.customerid
+GROUP BY age_group
+ORDER BY total_rides DESC;
+
+
+--Q5)Who are the top 10 customers with the highest ride frequency but lowest average rating? (Retention Risk)
+SELECT c.customerid, c.customername, COUNT(r.rideid) AS ride_count,
+ROUND(AVG(c.customerrating),2) AS avg_rating
+FROM customers c
+JOIN rides r ON c.customerid = r.customerid
+GROUP BY c.customerid, c.customername
+HAVING COUNT(r.rideid) > 5
+ORDER BY avg_rating ASC, ride_count DESC
+LIMIT 10;
+
+--Q6)Across all vehicle types, which ride type generates the most revenue, and how does this differ across vehicle categories?
+SELECT 
+r.ridetype,
+d.vehicletype,
+COUNT(r.rideid) AS total_rides,
+SUM(r.fare) AS total_revenue,
+AVG(r.fare) AS avg_fare_per_ride
+FROM rides r
+JOIN drivers d 
+ON r.driverid = d.driverid
+GROUP BY r.ridetype, d.vehicletype
+ORDER BY total_revenue DESC;
+
+--Q7)Which pickup-dropoff routes are the most popular?
+SELECT pickuplocation, dropofflocation, COUNT(*) AS ride_count
+FROM rides
+GROUP BY pickuplocation, dropofflocation
+ORDER BY ride_count DESC
+LIMIT 10;
+
+
+--Q8)Peak demand time – At what time of the day do most rides occur?
+SELECT CASE 
+WHEN EXTRACT(HOUR FROM r.pickupdatetime) BETWEEN 6 AND 11 THEN 'Morning'
+WHEN EXTRACT(HOUR FROM r.pickupdatetime) BETWEEN 12 AND 17 THEN 'Afternoon'
+WHEN EXTRACT(HOUR FROM r.pickupdatetime) BETWEEN 18 AND 22 THEN 'Evening'
+ELSE 'Night'
+END AS timeslot,
+COUNT(*) AS total_rides,
+SUM(r.fare) AS total_revenue
+FROM rides r
+GROUP BY timeslot
+ORDER BY total_revenue DESC;
+
+
+--Q9)Ride type trends over months.
+SELECT 
+ridetype, 
+EXTRACT(YEAR FROM pickupdatetime) AS year,
+EXTRACT(MONTH FROM pickupdatetime) AS month,
+COUNT(rideid) AS total_rides,
+AVG(fare) AS avg_fare
+FROM rides
+GROUP BY ridetype, EXTRACT(YEAR FROM pickupdatetime), EXTRACT(MONTH FROM pickupdatetime)
+ORDER BY year, month;
 
 --Q10)Total monthly rides,their revenue and avg fare. 
 SELECT 
@@ -178,18 +186,13 @@ GROUP BY c.customerid, c.customername
 ORDER BY lifetime_value DESC
 LIMIT 10;
 
---Q12)Across all vehicle types, which ride type generates the most revenue, and how does this differ across vehicle categories?
-SELECT 
-r.ridetype,
-d.vehicletype,
-COUNT(r.rideid) AS total_rides,
-SUM(r.fare) AS total_revenue,
-AVG(r.fare) AS avg_fare_per_ride
-FROM rides r
-JOIN drivers d 
-ON r.driverid = d.driverid
-GROUP BY r.ridetype, d.vehicletype
+--Q12)Revenue contribution by ride type (e.g., Economy vs Premium).
+SELECT ridetype, COUNT(*) AS total_rides, ROUND(SUM(fare),2) AS total_revenue,
+ROUND(AVG(fare),2) AS avg_fare
+FROM rides
+GROUP BY ridetype
 ORDER BY total_revenue DESC;
+
 
 --Q13)Which day of the week has maximum demand?
 SELECT TO_CHAR(pickupdatetime, 'Day') AS day_of_week,
@@ -199,3 +202,5 @@ SUM(fare) AS total_revenue
 FROM rides
 GROUP BY day_of_week
 ORDER BY total_revenue DESC;
+
+
